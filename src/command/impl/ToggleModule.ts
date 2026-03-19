@@ -14,12 +14,6 @@ export default class ToggleModuleCommand extends BaseCommand {
      execute(context: CommandContext): void {
         const { args } = context;
 
-        if (args.length === 0) {
-            this.client.bot.chat(`Usage: ${this.info.usage}`);
-
-            return;
-        }
-
         const moduleName = args[0].toLowerCase();
 
         const module = this.client.modules.get(moduleName);

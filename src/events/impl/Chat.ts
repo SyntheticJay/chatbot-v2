@@ -77,11 +77,19 @@ export default class ChatEvent extends BaseEvent {
         }
 
         try {
-            command.execute({
+            const context: CommandContext = {
                 args,
                 raw: message,
                 executor: username,
-            } as CommandContext);
+            };
+
+            if (command.info.usage && args.length === 0) {
+                this.client.bot.chat(`Usage: ${BaseCommand.prefix}${command.info.name} ${command.info.usage}`);
+
+                return;
+            }
+
+            command.execute(context);
         } catch (error) {
             const errorText: string = error instanceof Error ? error.stack || error.message : String(error);
             this.client.logger.error(`Error executing command ${commandName}: ${errorText}`);

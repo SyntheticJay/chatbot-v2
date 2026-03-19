@@ -9,7 +9,7 @@ export interface CommandContext {
 export interface CommandInfo {
     name: string;
     description: string;
-    usage: string;
+    usage?: string;
     aliases?: string[] | undefined;
     cooldown?: number | undefined;
 }

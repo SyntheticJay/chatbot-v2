@@ -11,7 +11,6 @@ export default class PingCommand extends BaseCommand {
         super(client, {
             name: "ping",
             description: "A test command",
-            usage: "ping",
         });
     }
 

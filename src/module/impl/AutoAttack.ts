@@ -44,27 +44,34 @@ export default class AutoAttack extends BaseModule {
             name: "autoattack",
             description: "Automatically attacks nearby players."
         });
+
+        this.listen("physicsTick", () => this.onPhysicsTick());
     }
 
-    async onPhysicsTick() {
-        const entity = this.client.bot.nearestEntity((entity: Entity) => this.isValidPlayer(entity));
+    /**
+     * On physics tick
+     *
+     * @return {Promise<void>}
+     */
+    async onPhysicsTick(): Promise<void> {
+        const nearestEntity = this.client.bot.nearestEntity((entity: Entity) => this.isValidPlayer(entity));
 
         const movement: Movement = this.client.bot.movement;
 
-        if (entity) {
+        if (nearestEntity) {
             this.setMovementStates(true);
 
-            movement.heuristic.get("proximity").target(entity.position);
+            movement.heuristic.get("proximity").target(nearestEntity.position);
 
             const yaw: number = movement.getYaw(240, 15, 1);
 
             await movement.steer(yaw);
 
             const botPos: Vec3 = this.client.bot.entity.position;
-            const entityPos: Vec3 = entity.position;
+            const entityPos: Vec3 = nearestEntity.position;
 
             if (botPos.distanceTo(entityPos) < this.attackRange) {
-                this.client.bot.attack(entity);
+                this.client.bot.attack(nearestEntity);
 
                 const currentTime: number = Date.now();
 
@@ -86,7 +93,6 @@ export default class AutoAttack extends BaseModule {
      * @return {void}
      */
     async onDisable(): Promise<void> {
-        console.log('disabling autoattack module, resetting movement states');
         this.setMovementStates(false);
     }
 

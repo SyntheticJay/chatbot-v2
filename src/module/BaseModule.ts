@@ -1,9 +1,15 @@
 import ChatbotClient from "../Client";
+import {BotEvents} from "mineflayer";
 
 interface ModuleInfo {
     name: string;
     description: string;
 }
+
+type ListenerEntry = {
+    event: keyof BotEvents;
+    handler: (...args: any[]) => void | Promise<void>;
+};
 
 export class BaseModule {
     /**
@@ -23,6 +29,12 @@ export class BaseModule {
      * @private
      */
     #enabled: boolean;
+    /**
+     * Registered event listeners for this module, used for cleanup when disabling the module.
+     *
+     * @private
+     */
+    #listeners: ListenerEntry[] = [];
 
     /**
      * Construct a new module.
@@ -36,6 +48,22 @@ export class BaseModule {
         this.#client = client;
         this.#info = info;
         this.#enabled = false;
+    }
+
+    /**
+     * Register an event listener for the bot. The listener will be automatically removed when the module is disabled.
+     *
+     * @param event
+     * @param handler
+     * @protected
+     */
+    protected listen<K extends keyof BotEvents>(
+        event: K,
+        handler: BotEvents[K] extends (...args: infer A) => any
+            ? (...args: A) => void | Promise<void>
+            : never
+    ): void {
+        this.#listeners.push({ event, handler: handler as (...args: any[]) => void | Promise<void> });
     }
 
     /**
@@ -73,6 +101,7 @@ export class BaseModule {
     setModuleState(newState: boolean) {
         if (newState) {
             this.#enabled = true;
+            this.#registerListeners();
 
             this.onEnable().catch(error => {
                 console.error(`Error enabling module "${this.info.name}":`, error);
@@ -80,10 +109,33 @@ export class BaseModule {
             });
         } else {
             this.#enabled = false;
+            this.#cleanupListeners();
 
             this.onDisable().catch(error => {
                 console.error(`Error disabling module "${this.info.name}":`, error);
             });
+        }
+    }
+
+    /**
+     * Register event listeners for the module. This method is called when the module is enabled.qq
+     *
+     * @private
+     */
+    #registerListeners() {
+        for (const { event, handler } of this.#listeners) {
+            this.client.bot.on(event, handler);
+        }
+    }
+
+    /**
+     * Remove all event listeners registered by this module. This method is called when the module is disabled to prevent memory leaks and unintended behavior.
+     *
+     * @private
+     */
+    #cleanupListeners() {
+        for (const { event, handler } of this.#listeners) {
+            this.client.bot.off(event, handler);
         }
     }
 
@@ -108,10 +160,4 @@ export class BaseModule {
      * @return {Promise<void>}
      */
     async onDisable(): Promise<void> {}
-    /**
-     * Fired on every physics tick.
-     *
-     * @return {Promise<void>}
-     */
-    async onPhysicsTick(): Promise<void> {}
 }
