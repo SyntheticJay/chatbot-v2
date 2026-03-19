@@ -16,6 +16,8 @@ export interface BotConfiguration {
         type: AuthType;
         username: string;
     },
+    autoReconnect: boolean;
+    reconnectDelay: number;
 }
 
 export const configuration: BotConfiguration = {
@@ -24,5 +26,7 @@ export const configuration: BotConfiguration = {
     auth: {
         type: (process.env.MINECRAFT_AUTH_TYPE as AuthType) || "offline",
         username: process.env.MINECRAFT_USERNAME || "Chatbot",
-    }
+    },
+    autoReconnect: process.env.AUTO_RECONNECT === "true",
+    reconnectDelay: parseInt(process.env.RECONNECT_DELAY || "5000", 10),
 }

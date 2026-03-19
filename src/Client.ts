@@ -6,6 +6,8 @@ import { BaseEvent } from "./events/BaseEvent";
 import { Glob } from "bun";
 import { join } from "path";
 import { Logger } from "pino";
+import BaseCommand from "./command/BaseCommand";
+import {BaseModule} from "./module/BaseModule";
 
 export default class ChatbotClient {
     /**
@@ -13,13 +15,25 @@ export default class ChatbotClient {
      *
      * @private
      */
-    #logger: Logger;
+    readonly #logger: Logger;
     /**
      * A collection to store the bot's events, keyed by their name.
      *
      * @private
      */
     #events: Collection<string, BaseEvent> = new Collection();
+    /**
+     * A collection to store the bot's commands, keyed by their name.
+     *
+     * @private
+     */
+    #commands: Collection<string, BaseCommand> = new Collection();
+    /**
+     * A collection to store the bot's modules, keyed by their name.
+     *
+     * @private
+     */
+    #modules: Collection<string, BaseModule> = new Collection();
     /**
      * The bot's configuration, loaded from the Config module.
      *
@@ -73,6 +87,44 @@ export default class ChatbotClient {
     }
 
     /**
+     * Load the commands.
+     *
+     * @return {Promise<void>}
+     */
+    async loadCommands(): Promise<void> {
+        const glob = new Glob(join(__dirname, "command/impl", "**", "*.ts"));
+
+        for await (const file of glob.scan()) {
+            const { default: CommandClass } = await import(file);
+
+            const commandInstance: BaseCommand = new CommandClass(this);
+
+            this.#commands.set(commandInstance.info.name, commandInstance);
+
+            this.#logger.info(`Registered command: ${commandInstance.info.name}`);
+        }
+    }
+
+    /**
+     * Load the modules.
+     *
+     * @return {Promise<void>}
+     */
+    async loadModules(): Promise<void> {
+        const glob = new Glob(join(__dirname, "module/impl", "**", "*.ts"));
+
+        for await (const file of glob.scan()) {
+            const { default: ModuleClass } = await import(file);
+
+            const moduleInstance: BaseModule = new ModuleClass(this);
+
+            this.#modules.set(moduleInstance.info.name, moduleInstance);
+
+            this.#logger.info(`Registered module: ${moduleInstance.info.name}`);
+        }
+    }
+
+    /**
      * Start the bot by creating a Mineflayer instance with the provided configuration and loading events.
      *
      * @return {Promise<void>}
@@ -87,7 +139,24 @@ export default class ChatbotClient {
 
         this.#bot.loadPlugin(movementPlugin);
 
+        await this.loadModules();
+        await this.loadCommands();
         await this.loadEvents();
+    }
+
+    /**
+     * Restart the bot by stopping the current instance and starting a new one.
+     *
+     * @return {Promise<void>}
+     */
+    async restart(): Promise<void> {
+        if (!this.#bot) {
+            throw new Error("Bot instance is not initialized. Cannot restart.");
+        }
+
+        this.#bot.end();
+        this.#bot = null;
+        await this.start();
     }
 
     /**
@@ -110,6 +179,24 @@ export default class ChatbotClient {
      */
     get events(): Collection<string, BaseEvent> {
         return this.#events;
+    }
+
+    /**
+     * Get the collection of commands registered with the bot.
+     *
+     * @return {Collection<string, BaseCommand>}
+     */
+    get commands(): Collection<string, BaseCommand> {
+        return this.#commands;
+    }
+
+    /**
+     * Get the collection of modules registered with the bot.
+     *
+     * @return {Collection<string, BaseModule>}
+     */
+    get modules(): Collection<string, BaseModule> {
+        return this.#modules;
     }
 
     /**
