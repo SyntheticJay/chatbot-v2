@@ -1,7 +1,7 @@
 import ChatbotClient from "../Client";
 import {BotEvents} from "mineflayer";
 import {Collection} from "@discordjs/collection";
-import Value from "./value/Value/Value";
+import Value from "./value/Value";
 import * as path from "node:path";
 import * as fs from "node:fs";
 

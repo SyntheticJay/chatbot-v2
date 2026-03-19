@@ -3,8 +3,8 @@ import ChatbotClient from "../../Client";
 import {Entity} from "prismarine-entity";
 import {Movement} from "mineflayer-movement";
 import {Vec3} from "vec3";
-import NumberValue from "../value/Value/NumberValue";
-import Value from "../value/Value/Value";
+import NumberValue from "../value/NumberValue";
+import Value from "../value/Value";
 
 export default class AutoAttack extends BaseModule {
     /**
