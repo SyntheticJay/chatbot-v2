@@ -3,6 +3,8 @@ import ChatbotClient from "../../Client";
 import {Entity} from "prismarine-entity";
 import {Movement} from "mineflayer-movement";
 import {Vec3} from "vec3";
+import NumberValue from "../value/Value/NumberValue";
+import Value from "../value/Value/Value";
 
 export default class AutoAttack extends BaseModule {
     /**
@@ -16,28 +18,25 @@ export default class AutoAttack extends BaseModule {
      *
      * @private
      */
-    private readonly messageCooldown: number = 5000;
+    #messageCooldown: Value<number>;
     /**
      * Maximum distance to track and interact with players
      *
      * @private
      */
-    private readonly trackingRange: number = 5;
+    readonly #trackingRange: Value<number>;
     /**
      * The distance at which the bot will attempt to attack the player
      *
      * @private
      */
-    private readonly attackRange: number = 2;
+    readonly #attackRange: Value<number>;
     /**
      * The messages the bot will randomly choose from when attacking a player
      *
      * @private
      */
-    private readonly messages: string[] = [
-        "come here you little bitch",
-        "fuck you man",
-    ];
+    readonly #messages: Value<string[]>;
 
     constructor(client: ChatbotClient) {
         super(client, {
@@ -46,6 +45,11 @@ export default class AutoAttack extends BaseModule {
         });
 
         this.listen("physicsTick", () => this.onPhysicsTick());
+
+        this.#messageCooldown = this.registerValue(new NumberValue("message_cooldown",  "Message Cooldown","The cooldown between each message", 5000, 0, 10000));
+        this.#trackingRange = this.registerValue(new NumberValue("tracking_range",  "Tracking Range","The distance to track players", 16, 1, 16));
+        this.#attackRange = this.registerValue(new NumberValue("attack_range",  "Attack Range","The distance to start attacking players", 3, 0, 5));
+        this.#messages = this.registerValue(new Value<string[]>("messages", "Attack Messages", "The messages the bot will randomly choose from when attacking a player", ["Got you %username%!", "You're no match for me!", "Is that all you've got?", "You can't hide from me!", "Prepare to be attacked!"]));
     }
 
     /**
@@ -70,16 +74,21 @@ export default class AutoAttack extends BaseModule {
             const botPos: Vec3 = this.client.bot.entity.position;
             const entityPos: Vec3 = nearestEntity.position;
 
-            if (botPos.distanceTo(entityPos) < this.attackRange) {
+            if (botPos.distanceTo(entityPos) < this.#attackRange.value) {
                 this.client.bot.attack(nearestEntity);
 
                 const currentTime: number = Date.now();
 
-                if (currentTime - this.lastMessageTime > this.messageCooldown) {
+                if (currentTime - this.lastMessageTime > this.#messageCooldown.value) {
                     this.lastMessageTime = currentTime;
 
-                    const randomMessageIndex: number = Math.floor(Math.random() * this.messages.length);
-                    let message: string = this.messages[randomMessageIndex];
+                    const randomMessageIndex: number = Math.floor(Math.random() * this.#messages.value.length);
+
+                    let message: string = this.#messages.value[randomMessageIndex];
+
+                    if (nearestEntity.username != null) {
+                        message = message.replace("%username%", nearestEntity.username);
+                    }
 
                     this.client.bot.chat(message);
                 }
@@ -114,7 +123,7 @@ export default class AutoAttack extends BaseModule {
      */
     isValidPlayer(entity: Entity): boolean {
         return entity.type === "player" &&
-            entity.position.distanceTo(this.client.bot.entity.position) < this.trackingRange &&
+            entity.position.distanceTo(this.client.bot.entity.position) < this.#trackingRange.value &&
             entity.username !== this.client.bot.username;
     }
 }

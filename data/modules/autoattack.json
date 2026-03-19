@@ -1,0 +1,12 @@
+{
+  "message_cooldown": 5000,
+  "tracking_range": 16,
+  "attack_range": 3,
+  "messages": [
+    "Got you %username%!",
+    "You're no match for me!",
+    "Is that all you've got?",
+    "You can't hide from me!",
+    "Prepare to be attacked!"
+  ]
+}

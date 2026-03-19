@@ -1,5 +1,9 @@
 import ChatbotClient from "../Client";
 import {BotEvents} from "mineflayer";
+import {Collection} from "@discordjs/collection";
+import Value from "./value/Value/Value";
+import * as path from "node:path";
+import * as fs from "node:fs";
 
 interface ModuleInfo {
     name: string;
@@ -35,6 +39,12 @@ export class BaseModule {
      * @private
      */
     #listeners: ListenerEntry[] = [];
+    /**
+     * A collection of values associated with this module, allowing for easy retrieval and management of module-specific data.
+     *
+     * @private
+     */
+    #values: Collection<string, Value<any>> = new Collection();
 
     /**
      * Construct a new module.
@@ -94,6 +104,78 @@ export class BaseModule {
     }
 
     /**
+     * Get the collection of values associated with this module, allowing for easy retrieval and management of module-specific data.
+     *
+     * @return {Collection<string, Value<any>>}
+     */
+    get values(): Collection<string, Value<any>> {
+        return this.#values;
+    }
+
+    /**
+     * Register a value for this module.
+     */
+    protected registerValue<T>(value: Value<T>): Value<T> {
+        this.#values.set(value.name, value);
+        return value;
+    }
+
+    /**
+     * Get the file path where the module's values are saved. This is used for persisting module-specific data across sessions.
+     *
+     * @private
+     */
+    get #savePath(): string {
+        return path.join(
+            "data",
+            "modules",
+            this.info.name + ".json",
+        );
+    }
+
+    /**
+     * Save the values to a file for persistence.
+     *
+     * @return {Promise<void>}
+     */
+    async saveValues(): Promise<void> {
+        const data: Record<string, any> = {};
+
+        for (const [key, value] of this.values) {
+            data[key] = value.value;
+        }
+
+        await fs.promises.mkdir(path.dirname(this.#savePath), { recursive: true });
+        await fs.promises.writeFile(this.#savePath, JSON.stringify(data, null, 2), "utf-8");
+    }
+
+    /**
+     * Load the values into the module.
+     *
+     * @return {Promise<void>}
+     */
+    async loadValues(): Promise<void> {
+        try {
+            const data = await fs.promises.readFile(this.#savePath, "utf-8");
+            const parsed: Record<string, any> = JSON.parse(data);
+
+            for (const [key, value] of Object.entries(parsed)) {
+                const existingValue = this.values.get(key);
+
+                if (existingValue) {
+                    existingValue.setValue(value);
+                } else {
+                    console.warn(`Value "${key}" not found in module "${this.info.name}" while loading values. Skipping.`);
+                }
+            }
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+                console.error(`Error loading values for module "${this.info.name}":`, error);
+            }
+        }
+    }
+
+    /**
      * Set the module's enabled state.
      *
      * @param newState
@@ -103,17 +185,21 @@ export class BaseModule {
             this.#enabled = true;
             this.#registerListeners();
 
-            this.onEnable().catch(error => {
-                console.error(`Error enabling module "${this.info.name}":`, error);
-                this.#enabled = false;
-            });
+            this.loadValues()
+                .then(() => this.onEnable())
+                .catch(error => {
+                    console.error(`Error enabling module "${this.info.name}":`, error);
+                    this.setModuleState(false);
+                });
         } else {
             this.#enabled = false;
             this.#cleanupListeners();
 
-            this.onDisable().catch(error => {
-                console.error(`Error disabling module "${this.info.name}":`, error);
-            });
+            this.saveValues()
+                .then(() => this.onDisable())
+                .catch(error => {
+                    console.error(`Error disabling module "${this.info.name}":`, error);
+                });
         }
     }
 

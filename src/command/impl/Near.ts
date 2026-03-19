@@ -5,6 +5,13 @@ import {Vec3} from "vec3";
 
 export default class NearCommand extends BaseCommand {
     /**
+     * The default radius threshold for nearby players if no radius is provided.
+     *
+     * @private
+     */
+    #radiusThreshold: number = 16;
+
+    /**
      * Construct a new NearCommand
      *
      * @param client
@@ -27,6 +34,12 @@ export default class NearCommand extends BaseCommand {
 
         if (isNaN(radius) || radius <= 0) {
             this.client.bot.chat("Please provide a valid radius (positive number).");
+
+            return;
+        }
+
+        if (radius > this.#radiusThreshold) {
+            this.client.bot.chat(`Radius exceeds the threshold of ${this.#radiusThreshold} blocks. Please provide a smaller radius.`);
 
             return;
         }
